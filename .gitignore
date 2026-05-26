@@ -1,3 +1,22 @@
-js/env.js
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
 .env
 .env.local
+.env.production.local
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Old legacy files (no longer used)
+js/
+css/style.css
+build.sh

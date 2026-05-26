@@ -1,28 +1,36 @@
-# vercel-study
-为了学习vercel部署而建的练习项目
+# Aurhythm — 音乐播放器
 
-## Supabase 集成
+基于 Vite + React + Supabase 的音乐播放器应用。
 
-本项目使用 Supabase 作为歌曲列表的数据源，凭据通过**环境变量**注入，不硬编码在源码中。
+## 项目结构
 
-### 环境变量配置
+```
+src/
+├── main.jsx              # React 入口
+├── App.jsx               # 主组件（包含 Supabase 查询）
+├── index.css             # 全局样式
+├── supabaseClient.js     # Supabase 客户端（环境变量握手）
+└── components/
+    └── SongList.jsx      # 歌曲列表组件
+```
+
+## 环境变量配置
 
 | 变量名 | 说明 |
 |--------|------|
-| `SUPABASE_URL` | Supabase 项目 URL，如 `https://xxxxx.supabase.co` |
-| `SUPABASE_ANON_KEY` | Supabase anon/public key |
+| `VITE_SUPABASE_URL` | Supabase 项目 URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key |
 
 **本地开发：**
-1. 复制 `.env.example` 为 `.env`，填入真实值
-2. 运行 `bash build.sh` 生成 `js/env.js`
-3. 打开 `index.html` 即可
+1. 复制 `.env.example` 为 `.env.local`，填入真实值
+2. `npm install && npm run dev`
 
 **Vercel 部署：**
-在 Vercel 项目 Settings → Environment Variables 中添加上述两个变量，构建时会自动执行 `build.sh` 生成 `js/env.js`。
+在项目 Settings → Environment Variables 中添加上述变量。
 
-### 数据库表结构
+## Supabase 数据库表结构
 
-在 Supabase SQL Editor 中执行以下建表语句：
+在 Supabase SQL Editor 中执行：
 
 ```sql
 CREATE TABLE songs (
@@ -36,7 +44,6 @@ CREATE TABLE songs (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 开启 RLS 并允许匿名读取
 ALTER TABLE songs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "允许公开读取歌曲"
@@ -44,12 +51,36 @@ CREATE POLICY "允许公开读取歌曲"
   USING (true);
 ```
 
-### 查询语句
+## 关键查询语句
 
-核心查询位于 `js/script.js` 的 `fetchSongs()` 函数：
-
+`src/supabaseClient.js` — 环境变量握手连接数据库：
 ```js
-const { data, error } = await supabaseClient.from('songs').select('*');
+import { createClient } from '@supabase/supabase-js';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 ```
 
-当 Supabase 未配置或查询失败时，会自动回退到本地备用数据。
+`src/App.jsx` — 组件中调用数据：
+```js
+import { useEffect, useState } from 'react';
+import { supabase } from './supabaseClient';
+
+function App() {
+  const [songs, setSongs] = useState([]);
+
+  useEffect(() => {
+    async function fetchSongs() {
+      const { data, error } = await supabase.from('songs').select('*');
+      if (error) {
+        console.error("查询失败:", error);
+      } else {
+        setSongs(data);
+      }
+    }
+    fetchSongs();
+  }, []);
+
+  // ...
+}
+```
