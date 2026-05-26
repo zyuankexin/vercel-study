@@ -89,8 +89,19 @@
     vizBars.forEach((b) => (b.style.height = '3px'));
   }
 
+  // ========== Supabase 初始化 ==========
+  // 请替换为你自己的 Supabase 项目 URL 和 anon key
+  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+  let supabaseClient = null;
+  if (typeof window.supabase !== 'undefined' && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+
   // ========== 数据模型 ==========
-  const defaultPlaylist = [
+  // 当 Supabase 不可用时的本地备用数据
+  const fallbackPlaylist = [
     { id: '1', title: '星空下的漫步', artist: 'Lune Blanche',  duration: '3:42', color: '#1a2a4a' },
     { id: '2', title: '城市夜曲',     artist: 'Neon Pulse',   duration: '4:15', color: '#2a1a3a' },
     { id: '3', title: '雨中即景',     artist: 'Violet Rain',  duration: '2:58', color: '#1a3a3a' },
@@ -101,7 +112,40 @@
     { id: '8', title: '黄昏咖啡馆',   artist: 'Golden Hour',  duration: '4:02', color: '#3a1a2a' },
   ];
 
-  let playlist     = [...defaultPlaylist];
+  let playlist     = [];
+
+  // 从 Supabase 加载歌曲列表
+  async function fetchSongs() {
+    if (!supabaseClient) {
+      console.warn('Supabase 未配置，使用本地备用数据');
+      return [...fallbackPlaylist];
+    }
+
+    const { data, error } = await supabaseClient.from('songs').select('*');
+
+    if (error) {
+      console.error('Supabase 查询失败:', error.message);
+      showToast('加载歌曲失败，使用本地数据');
+      return [...fallbackPlaylist];
+    }
+
+    if (!data || data.length === 0) {
+      console.warn('Supabase 返回空数据，使用本地备用数据');
+      return [...fallbackPlaylist];
+    }
+
+    return data.map(function (song) {
+      return {
+        id:        song.id,
+        title:     song.title     || '未知曲目',
+        artist:    song.artist    || '未知艺术家',
+        duration:  song.duration  || '--:--',
+        color:     song.color     || '#1a1a3e',
+        coverUrl:  song.cover_url || null,
+        src:       song.src       || null,
+      };
+    });
+  }
   let currentIndex = -1;
   let isShuffle    = false;
   let repeatMode   = 0; // 0=off, 1=all, 2=one
@@ -491,7 +535,12 @@
   // ========== 初始化 ==========
   audio.volume = 0.7;
   setVolume(0.7);
-  renderPlaylist();
+
+  // 从 Supabase 加载歌曲列表，成功后渲染播放列表
+  (async function initPlaylist() {
+    playlist = await fetchSongs();
+    renderPlaylist();
+  })();
 
   document.addEventListener('click', function once() {
     if (!audioCtx) initAudioContext();
