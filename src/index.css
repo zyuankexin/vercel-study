@@ -1239,6 +1239,31 @@ body {
   cursor: not-allowed;
 }
 
+/* ===== 重发验证邮件按钮 ===== */
+.auth-resend {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s var(--transition-smooth);
+}
+
+.auth-resend:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--accent);
+}
+
+.auth-resend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .auth-switch {
   text-align: center;
   margin-top: 20px;
