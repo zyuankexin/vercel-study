@@ -55,6 +55,7 @@ function AuthModal({ onClose, onAuthSuccess }) {
         options: { emailRedirectTo: window.location.origin },
       });
       if (error) {
+        console.error('重发验证邮件失败:', error.message, error.status, error);
         const isRateLimit = error.message?.includes('rate limit') || error.message?.includes('60 seconds');
         if (isRateLimit) {
           // 被限速后不再允许重试，避免死循环。请关闭弹窗重新打开后再试。
@@ -64,7 +65,8 @@ function AuthModal({ onClose, onAuthSuccess }) {
           setMsg(translateError(error.message));
         }
       } else {
-        setMsg('验证邮件已重新发送，请查收邮箱。');
+        console.log('验证邮件已发送至:', pendingEmail);
+        setMsg('验证邮件已重新发送，请查收邮箱（包括垃圾箱）。');
         setCooldown(90);
       }
     } catch (err) {
@@ -91,14 +93,30 @@ function AuthModal({ onClose, onAuthSuccess }) {
       if (isLogin) {
         result = await supabase.auth.signInWithPassword({ email, password });
       } else {
-        result = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
+        // 注册前先尝试登录，判断邮箱是否已存在（避免重复创建账号）
+        const existingCheck = await supabase.auth.signInWithPassword({ email, password });
+        if (!existingCheck.error && existingCheck.data?.session) {
+          // 邮箱已注册且已验证，直接登录成功
+          result = existingCheck;
+        } else if (existingCheck.error?.message?.includes('Email not confirmed')) {
+          // 邮箱已注册但未验证，不调用 signUp，直接提示
+          setPendingEmail(email);
+          setCooldown(90);
+          setMsg('该邮箱已注册，请先查收验证邮件后登录。');
+          setSubmitting(false);
+          return;
+        } else {
+          // 邮箱不存在或密码错误，执行正常注册流程
+          result = await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: window.location.origin },
+          });
+        }
       }
 
       if (result.error) {
+        console.error('Auth 操作失败:', isLogin ? '登录' : '注册', result.error.message, result.error);
         setMsg(translateError(result.error.message));
         setSubmitting(false);
         // 登录时如果邮箱未验证，保存邮箱以便重发验证邮件
@@ -106,26 +124,12 @@ function AuthModal({ onClose, onAuthSuccess }) {
           setPendingEmail(email);
         }
       } else {
+        console.log('Auth 操作成功:', isLogin ? '登录' : '注册', result.data?.user?.email, 'email_confirmed_at:', result.data?.user?.email_confirmed_at);
         // 注册后检查邮箱是否已验证
         if (!isLogin && result.data?.user) {
-          if (result.data.user.identities?.length === 0) {
-            // 邮箱已注册但未验证（Supabase 返回空 identities 数组）
-            setPendingEmail(email);
-            setCooldown(90);
-            setMsg('该邮箱已注册，请先查收验证邮件后登录。');
-            setSubmitting(false);
-            return;
-          }
-          if (!result.data.session) {
-            // Supabase 开启了邮箱确认（无 session，新注册）
-            setPendingEmail(email);
-            setCooldown(90);
-            setMsg('注册成功！请查收邮箱确认链接后登录。');
-            setSubmitting(false);
-            return;
-          }
-          if (!result.data.user.email_confirmed_at) {
-            // Supabase 未开启邮箱确认，但客户端强制要求验证
+          // 新注册用户，无论 Supabase 配置如何都要求邮箱验证
+          const confirmed = !!result.data.user.email_confirmed_at;
+          if (!confirmed || !result.data.session) {
             setPendingEmail(email);
             setCooldown(90);
             setMsg('注册成功！请查收邮箱确认链接后登录。');
