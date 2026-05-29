@@ -108,8 +108,16 @@ function AuthModal({ onClose, onAuthSuccess }) {
       } else {
         // 注册后检查邮箱是否已验证
         if (!isLogin && result.data?.user) {
+          if (result.data.user.identities?.length === 0) {
+            // 邮箱已注册但未验证（Supabase 返回空 identities 数组）
+            setPendingEmail(email);
+            setCooldown(90);
+            setMsg('该邮箱已注册，请先查收验证邮件后登录。');
+            setSubmitting(false);
+            return;
+          }
           if (!result.data.session) {
-            // Supabase 开启了邮箱确认（无 session）
+            // Supabase 开启了邮箱确认（无 session，新注册）
             setPendingEmail(email);
             setCooldown(90);
             setMsg('注册成功！请查收邮箱确认链接后登录。');
