@@ -744,7 +744,6 @@ function App() {
         <div className="orb"></div>
         <div className="orb"></div>
       </div>
-      <div className="grain-overlay"></div>
 
       {/* Toast */}
       {toast && <div className="toast show">{toast}</div>}
