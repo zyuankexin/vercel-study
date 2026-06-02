@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, lazy, Suspense } from 'react';
 import { supabase } from './supabaseClient';
 import SongList from './components/SongList';
-import AuthModal from './components/AuthModal';
-import CreatePlaylistModal from './components/CreatePlaylistModal';
+
+const AuthModal = lazy(() => import('./components/AuthModal'));
+const CreatePlaylistModal = lazy(() => import('./components/CreatePlaylistModal'));
 
 // ========== 工具函数 ==========
 function formatTime(sec) {
@@ -750,24 +751,28 @@ function App() {
 
       {/* 登录/注册弹窗 */}
       {showAuthModal && (
-        <AuthModal
-          onClose={() => setShowAuthModal(false)}
-          onAuthSuccess={(u) => { setUser(u); setShowAuthModal(false); showToast('登录成功'); }}
-        />
+        <Suspense fallback={null}>
+          <AuthModal
+            onClose={() => setShowAuthModal(false)}
+            onAuthSuccess={(u) => { setUser(u); setShowAuthModal(false); showToast('登录成功'); }}
+          />
+        </Suspense>
       )}
 
       {/* 创建歌单弹窗 */}
       {showCreatePlaylistModal && (
-        <CreatePlaylistModal
-          onClose={() => setShowCreatePlaylistModal(false)}
-          onCreate={(name, desc) => {
-            handleCreatePlaylist(name, desc).then(success => {
-              if (success) {
-                setShowCreatePlaylistModal(false);
-              }
-            });
-          }}
-        />
+        <Suspense fallback={null}>
+          <CreatePlaylistModal
+            onClose={() => setShowCreatePlaylistModal(false)}
+            onCreate={(name, desc) => {
+              handleCreatePlaylist(name, desc).then(success => {
+                if (success) {
+                  setShowCreatePlaylistModal(false);
+                }
+              });
+            }}
+          />
+        </Suspense>
       )}
 
       {/* 全局布局：Sidebar + Main + Bottom Player */}
